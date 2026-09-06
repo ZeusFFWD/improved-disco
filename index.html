@@ -132,6 +132,15 @@
     padding:2px 7px; border-radius:6px; margin-left:6px; vertical-align:middle;
   }
   .list-item .ta-badge{ margin-left:4px; }
+  .official-badge{
+    display:inline-flex; align-items:center; gap:3px;
+    background:#2C4A6E; color:#F3ECE0; font-weight:700; font-size:0.68rem;
+    padding:2px 7px; border-radius:6px; margin-left:6px; vertical-align:middle;
+    border:1px solid rgba(243,236,224,0.35);
+  }
+  .list-item .official-badge{ margin-left:4px; }
+  .chip.official-chip{ background:#2C4A6E; border-color:#2C4A6E; color:#F3ECE0; font-weight:600; }
+  .chip.official-chip.inactive{ background:var(--bg-raised); border-color:var(--line); color:var(--ink-dim); font-weight:500; }
   .sheet-close{ margin-left:auto; background:none; border:none; color:var(--ink-faint); font-size:1.3rem; line-height:1; cursor:pointer; padding:4px; }
   .sheet-blurb{ font-size:0.9rem; color:var(--ink); line-height:1.5; margin:14px 0 4px; }
   .sheet-tip{ font-size:0.82rem; color:var(--ink-dim); line-height:1.5; margin:0 0 16px; padding-left:14px; border-left:2px solid var(--dot); }
@@ -214,6 +223,8 @@ const SPOTS = [
   {n:'Playa de Tufia', c:'beach', lat:27.9624186, lng:-15.3800896, r:4.6, rc:2156, b:'A quiet black-sand cove by an old fishing hamlet, with none of the resort crowds.', t:'Bring your own food and water — there are no shops or facilities nearby.'},
   {n:'Playa de San Agustín', c:'beach', lat:27.7689465, lng:-15.5412606, r:4.4, rc:2431, b:'Quieter than its neighbour Playa del Inglés, with gentle waves that make it a favourite for beginner surfers.', t:'Good sunrise spot — very few people around before 8am.'},
   {n:'Playa del Juncal', c:'beach', lat:28.1170484, lng:-15.7045785, r:4.5, rc:253, b:'A secluded northern cove reached by a scenic coastal hike, with a beach that feels genuinely off the map.', t:'Around a 20-minute walk down from the parking area — wear proper shoes.'},
+  {n:'Playa del Burrero', c:'beach', lat:27.9102244, lng:-15.386858, r:4.4, rc:440, b:'A quiet, rocky cove by a small fishing village near the airport, with a cliff-top viewpoint and a handful of local eateries.', t:'Good spot for a last swim before a flight — it\'s only a few minutes from the airport.', official:true},
+  {n:'La Aldea Beach', c:'beach', lat:28.0003075, lng:-15.8189851, r:4.4, rc:397, b:'A dramatic stone beach on the wild west coast, framed by a small harbour and a handful of restaurants.', t:'Good for sunset and stone-balancing rather than swimming — the surf can be strong.', official:true},
 
   // Beach clubs
   {n:'Perchel Beach Club', c:'beachclub', lat:27.7534823, lng:-15.6752989, r:4.6, rc:1360, b:'An infinity pool and sun terrace stacked above the sea near Puerto Rico — the loungers face the whole horizon.', t:'Book ahead on weekends; the pool-side tables fill up fast.'},
@@ -318,6 +329,9 @@ const SPOTS = [
   {n:'Mirador Pico de la Gorra', c:'viewpoint', lat:28.0160405, lng:-15.6032926, r:4.8, rc:243, b:'A roadside viewpoint over Tejeda and the highlands, with a bench and rubbish bin so people actually stop.', t:'A relaxed alternative if the busier miradores nearby feel crowded.'},
   {n:'Mirador El Mulato', c:'viewpoint', lat:27.9083555, lng:-15.6960568, r:4.7, rc:800, b:'A hairpin mountain road opens onto a valley view down to a small village and the sea beyond.', t:'A good rest stop if you\'re driving between Mogán and the highlands.'},
   {n:'Mirador Roque Nublo', c:'viewpoint', lat:27.9757708, lng:-15.5896873, r:4.7, rc:141, b:'The classic lookout toward Roque Nublo itself, especially striking as the sun drops behind Tenerife.', t:'Free timed entry tickets are required in peak hours — book ahead online.'},
+  {n:'Mirador Pico Bandama', c:'viewpoint', lat:28.0375327, lng:-15.4578620, r:4.6, rc:6522, b:'A 360° lookout over the Bandama volcanic crater and out to the east coast, with a walking path around the rim.', t:'The rim walk is about 3.5km — wear proper shoes, the volcanic gravel is loose in places.', official:true},
+  {n:'Mirador de Unamuno', c:'viewpoint', lat:28.0194165, lng:-15.6463216, r:4.7, rc:419, b:'A quieter Artenara viewpoint looking out to Roque Nublo and Bentayga, easy to miss just below the main square.', t:'Walk five minutes further up to the Christ statue for an even wider view.', official:true},
+  {n:'Mirador de la Montaña de Arucas', c:'viewpoint', lat:28.1249137, lng:-15.5225893, r:4.0, rc:503, b:'A hilltop lookout above Arucas with sweeping views over the north coast and out toward Las Palmas.', t:'A steady uphill walk from town — worth timing for late afternoon light.', official:true},
 
   // Nature & hidden gems
   {n:'Dunas de Maspalomas', c:'nature', lat:27.7405705, lng:-15.5750958, r:4.8, rc:21825, b:'400 hectares of rolling desert dunes that end abruptly at the ocean, with a saltwater lagoon and palm grove inside.', t:'Sunset turns the sand gold — go in the last hour before dusk.'},
@@ -332,6 +346,9 @@ const SPOTS = [
   {n:'Barranco de Las Vacas', c:'nature', lat:27.915035, lng:-15.4755112, r:4.4, rc:4103, b:'A narrow, Arizona-style slot canyon carved into orange rock, tucked just off a mountain road near Agüimes.', t:'Not clearly signed — look for roadside parking about 5km past town on a hairpin bend.'},
   {n:'Parque Rural de Doramas', c:'nature', lat:28.0873566, lng:-15.5826125, r:4.5, rc:2338, b:'A lush, green mountain park in the north with banana plantations and sweeping ocean views on the drive up.', t:'You don\'t need a car — local buses run up from the coast.'},
   {n:'Cueva de los Mil Colores', c:'nature', lat:28.0094250, lng:-15.3757313, r:3.9, rc:509, b:'A striped, rainbow-coloured sea cave near La Garita, also known as Cueva de la Reina Mora — only reachable at low tide.', t:'Check the tide tables before you go; it floods completely at high tide.'},
+  {n:'Guayadeque Ravine', c:'nature', lat:27.9326229, lng:-15.4672273, r:4.7, rc:738, b:'A dramatic gorge lined with cave houses still lived in today, with cave restaurants and a small museum near the entrance.', t:'Drive the full length even if you don\'t stop — the scenery alone makes it worth it.', official:true},
+  {n:'La Fortaleza de Ansite', c:'nature', lat:27.882732, lng:-15.5290802, r:4.6, rc:778, b:'A natural rock fortress and one of the island\'s most important pre-Hispanic sites, where the last Guanche resistance made its stand.', t:'Wear proper shoes and bring water — there\'s little shade and no bins on site.', official:true},
+  {n:'Finca de Osorio', c:'nature', lat:28.0661179, lng:-15.5449402, b:'A green forest estate just outside Teror with marked walking trails, an old manor house, and a small farm.', t:'A gentle, mostly flat walk — good for a slower day away from the coast.', official:true},
 
   // Family & activities
   {n:'Cocodrilo Park', c:'family', lat:27.8871098, lng:-15.4677905, r:4.5, rc:7159, b:'A rescue-centre zoo east of Agüimes with crocodiles, birds, and a handful of feeding shows through the day.', t:'Time your visit around a show — check the board by the entrance.'},
@@ -350,6 +367,10 @@ const SPOTS = [
   {n:'Cenobio de Valerón', c:'culture', lat:28.1387058, lng:-15.6037841, r:4.5, rc:3677, b:'Hundreds of hand-carved grain storage caves cut into a cliff face by the island\'s original inhabitants.', t:'Free parking at the entrance; the visit itself takes under an hour.'},
   {n:'Casa de Colón', c:'culture', lat:28.1015804, lng:-15.4140442, r:4.5, rc:7587, b:'A restored colonial mansion in Las Palmas\' old town tracing Columbus\'s stop on the island en route to the Americas.', t:'Free entry on Sundays; look up at the ceiling in the cartographer\'s room.'},
   {n:'Museo Canario', c:'culture', lat:28.0996848, lng:-15.4152456, r:4.5, rc:2595, b:'A compact museum on the island\'s original Guanche inhabitants, with an unusually large collection of preserved remains.', t:'The extra audio-guide fee is worth it — the displays have little English signage.'},
+  {n:'Destilerías Arehucas', c:'culture', lat:28.1197750, lng:-15.5295944, r:4.7, rc:2871, b:'A working rum distillery in Arucas offering guided tours through the old cellars, ending with a generous tasting.', t:'Don\'t drive there — the tasting at the end is worth arriving by taxi or bus for.', official:true},
+  {n:'Casa-Museo Tomás Morales', c:'culture', lat:28.1106442, lng:-15.5836603, r:4.6, rc:488, b:'A free house-museum in Moya dedicated to the Canarian poet, with personal belongings and portraits by his literary circle.', t:'Ask about the guided tour — staff bring the poet\'s life to life far more than the exhibits alone.', official:true},
+  {n:'Ermita de La Cuevita', c:'culture', lat:28.0186176, lng:-15.6426642, r:4.6, rc:107, b:'A small hermitage carved directly into the rock in Artenara, one of the island\'s more unusual places of worship.', t:'Quick to visit — pair it with the Mirador de Unamuno just below.', official:true},
+  {n:'Casa del Vino de Gran Canaria', c:'culture', lat:28.0330200, lng:-15.4975890, r:4.2, rc:907, b:'A small wine museum and restaurant in Santa Brígida pouring only Gran Canaria wines, with tastings by the glass.', t:'The restaurant terrace is a nice lunch stop — pair a tasting with the Canarian menu.', official:true},
 
   // Nightlife
   {n:'Tipsy Hammock', c:'nightlife', lat:27.7540342, lng:-15.5686194, r:4.6, rc:7875, b:'A beachfront cocktail bar and grill in Playa del Inglés with an energetic, all-day crowd.', t:'Expect a wait for a table at peak times — it\'s deservedly popular.'},
@@ -379,6 +400,7 @@ const SPOTS = [
   {n:'OCEANSIDE Surf School', c:'adventure', lat:28.1307253, lng:-15.4448634, r:4.8, rc:1040, b:'A long-running surf school on Las Canteras beach known for genuinely attentive, safety-first instructors.', t:'Free lockers and showers are included with board and wetsuit hire.'},
   {n:'Calypso Dive Center', c:'adventure', lat:27.7645708, lng:-15.6007314, r:4.5, rc:96, b:'A PADI dive centre running boat and coastal dives out of Puerto de Mogán, with regular ray and shark sightings.', t:'Hotel pickup is included — the boat departs from the Mogán harbour.'},
   {n:'Water Sports Luis Molina', c:'adventure', lat:27.7723426, lng:-15.6968141, r:4.0, rc:463, b:'Jet ski, parasailing, and banana-boat rides right off Anfi beach.', t:'Book the parasailing for late afternoon — calmer winds, better light.'},
+  {n:'Pozo Izquierdo', c:'adventure', lat:27.8241275, lng:-15.4251467, r:4.5, rc:38, b:'A world-famous windsurfing and kitesurfing beach on the southeast coast, with near-constant wind almost year-round.', t:'Watch from the breakwater if you\'re not riding — it\'s one of the best free shows on the island.', official:true},
 ];
 
 // price tier data (1=€ .. 4=€€€€) from Google Places, applied where available
@@ -442,6 +464,19 @@ favChip.addEventListener('click', ()=>{
 });
 chipsEl.appendChild(favChip);
 
+let officialOnly = false;
+const officialCount = SPOTS.filter(s=>s.official).length;
+const officialChip = document.createElement('div');
+officialChip.className = 'chip official-chip inactive';
+officialChip.innerHTML = `🧭 Official routes · ${officialCount}`;
+officialChip.addEventListener('click', ()=>{
+  officialOnly = !officialOnly;
+  officialChip.classList.toggle('inactive', !officialOnly);
+  refreshMarkers();
+  buildList();
+});
+chipsEl.appendChild(officialChip);
+
 Object.entries(CATS).forEach(([key, def])=>{
   const chip = document.createElement('div');
   chip.className = 'chip active';
@@ -481,6 +516,7 @@ function matchesSearch(spot){
 }
 function isVisible(spot){
   if(favOnly) return !!spot.fav && matchesSearch(spot);
+  if(officialOnly) return !!spot.official && matchesSearch(spot);
   return active.has(spot.c) && matchesSearch(spot);
 }
 
@@ -561,7 +597,8 @@ function openSheet(spot){
   document.getElementById('sheet-name').textContent = (spot.fav ? '⭐ ' : '') + spot.n;
   const priceStr = spot.p ? ` <span>· ${'€'.repeat(spot.p)}</span>` : '';
   const taStr = spot.ta ? ` <span class="ta-badge">TA ${spot.ta.toFixed(1)}</span>` : '';
-  document.getElementById('sheet-rating').innerHTML = (spot.r ? `★ ${spot.r.toFixed(1)} <span>(${fmtCount(spot.rc)} ratings)</span>` : `⭐ Personal favorite <span>(no public rating yet)</span>`) + priceStr + taStr;
+  const officialStr = spot.official ? ` <span class="official-badge">🧭 Official route</span>` : '';
+  document.getElementById('sheet-rating').innerHTML = (spot.r ? `★ ${spot.r.toFixed(1)} <span>(${fmtCount(spot.rc)} ratings)</span>` : `⭐ Personal favorite <span>(no public rating yet)</span>`) + priceStr + taStr + officialStr;
   document.getElementById('sheet-blurb').textContent = spot.b;
   document.getElementById('sheet-tip').textContent = spot.t;
   document.getElementById('sheet-tip').style.borderColor = def.hex;
@@ -596,7 +633,7 @@ function buildList(){
     row.className = 'list-item';
     row.innerHTML = `<div class="swatch" style="background:${def.hex}">${def.icon}</div>
       <div>
-        <div class="li-head"><h3>${spot.fav ? '⭐ ' : ''}${spot.n}</h3><span class="rating">${spot.r ? '★ '+spot.r.toFixed(1) : 'new'}${spot.p ? ' · '+'€'.repeat(spot.p) : ''}</span>${spot.ta ? `<span class="ta-badge">TA ${spot.ta.toFixed(1)}</span>` : ''}</div>
+        <div class="li-head"><h3>${spot.fav ? '⭐ ' : ''}${spot.n}</h3><span class="rating">${spot.r ? '★ '+spot.r.toFixed(1) : 'new'}${spot.p ? ' · '+'€'.repeat(spot.p) : ''}</span>${spot.ta ? `<span class="ta-badge">TA ${spot.ta.toFixed(1)}</span>` : ''}${spot.official ? `<span class="official-badge">🧭</span>` : ''}</div>
         <p>${spot.b}</p>
       </div>`;
     row.addEventListener('click', ()=>{ listWrap.classList.remove('open'); openSheet(spot); });
