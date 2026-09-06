@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gran Canaria — Travel Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #142221;
+    --bg-raised: #1B2E2C;
+    --line: rgba(243,236,224,0.12);
+    --ink: #F3ECE0;
+    --ink-dim: rgba(243,236,224,0.62);
+    --ink-faint: rgba(243,236,224,0.4);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg); color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    overflow:hidden;
+  }
+  #app{ display:flex; flex-direction:column; height:100vh; height:100dvh; position:relative; }
+
+  header{ padding:14px 18px 0; background:var(--bg); flex-shrink:0; z-index:20; }
+  .title-row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  h1{ font-family:'Fraunces', serif; font-weight:600; font-size:1.4rem; letter-spacing:-0.01em; margin:0; line-height:1.05; }
+  h1 span{ display:block; font-size:0.6em; font-weight:500; color:#E8B94A; margin-top:2px; }
+  .count-pill{ font-size:0.68rem; color:var(--ink-dim); white-space:nowrap; padding-top:2px; }
+  .count-pill b{ color:var(--ink); font-weight:600; }
+
+  .search-row{ margin:12px 0 0; position:relative; }
+  .search-row input{
+    width:100%; background:var(--bg-raised); border:1px solid var(--line);
+    border-radius:12px; color:var(--ink); font-family:inherit; font-size:0.88rem;
+    padding:11px 36px 11px 14px; outline:none;
+  }
+  .search-row input::placeholder{ color:var(--ink-faint); }
+  .search-row .clear-btn{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--ink-faint); font-size:1.1rem;
+    cursor:pointer; padding:6px; display:none;
+  }
+  .search-row .clear-btn.show{ display:block; }
+
+  .chips{
+    display:flex; gap:8px; overflow-x:auto; padding:12px 18px 2px;
+    scrollbar-width:none; flex-shrink:0; background:var(--bg); border-bottom:1px solid var(--line);
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0; display:flex; align-items:center; gap:6px;
+    padding:7px 12px 8px; border-radius:999px; border:1px solid var(--line);
+    background:var(--bg-raised); color:var(--ink-dim); font-size:0.76rem; font-weight:500;
+    cursor:pointer; user-select:none; transition:background .15s, color .15s, border-color .15s;
+    margin-bottom:10px; white-space:nowrap;
+  }
+  .chip .dot{ width:8px;height:8px;border-radius:50%; background:var(--dot); flex-shrink:0; }
+  .chip.active{ background:var(--dot); border-color:var(--dot); color:#14201F; font-weight:600; }
+  .chip.active .dot{ background:#14201F; opacity:.55; }
+
+  #map-wrap{ position:relative; flex:1; min-height:0; z-index:0; isolation:isolate; }
+  .pin.fav{ box-shadow:0 0 0 3px #E8B94A, 0 2px 6px rgba(0,0,0,0.45); }
+  .fav-star{
+    position:absolute; top:-6px; right:-6px; transform:rotate(45deg);
+    font-size:12px; line-height:1; filter:drop-shadow(0 1px 1px rgba(0,0,0,0.6));
+  }
+  .chip.fav-chip{ background:#E8B94A; border-color:#E8B94A; color:#14201F; font-weight:600; }
+  .chip.fav-chip.inactive{ background:var(--bg-raised); border-color:var(--line); color:var(--ink-dim); font-weight:500; }
+  #map{ position:absolute; inset:0; background:#0F1917; z-index:1; }
+  .leaflet-container{ font-family:'Space Grotesk', sans-serif; background:#0F1917; }
+
+  .pin{
+    width:28px; height:28px; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+    display:flex; align-items:center; justify-content:center; position:relative;
+    box-shadow:0 2px 6px rgba(0,0,0,0.45); border:2px solid rgba(20,32,31,0.85);
+  }
+  .pin span{ transform:rotate(45deg); font-size:13px; line-height:1; }
+  .pin.selected{ width:38px; height:38px; z-index:1000 !important; }
+  .pin.selected span{ font-size:17px; }
+
+  .view-toggle{
+    position:absolute; top:12px; right:12px; z-index:800; background:var(--bg-raised);
+    border:1px solid var(--line); color:var(--ink); font-family:inherit; font-size:0.72rem;
+    font-weight:600; padding:8px 12px; border-radius:10px; cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+  }
+
+  #list-wrap{
+    position:absolute; inset:0; background:var(--bg); overflow-y:auto; display:none;
+    padding:6px 14px 24px; z-index:800;
+  }
+  #list-wrap.open{ display:block; }
+  .list-item{
+    display:flex; gap:12px; align-items:flex-start; padding:13px 4px;
+    border-bottom:1px solid var(--line); cursor:pointer;
+  }
+  .list-item .swatch{
+    width:30px;height:30px;border-radius:50%; display:flex;align-items:center;justify-content:center;
+    flex-shrink:0; font-size:14px; background:var(--dot); margin-top:1px;
+  }
+  .list-item .li-head{ display:flex; align-items:baseline; gap:8px; }
+  .list-item h3{ margin:0; font-size:0.92rem; font-weight:600; font-family:'Fraunces',serif; }
+  .list-item .rating{ font-size:0.72rem; color:#E8B94A; font-weight:600; white-space:nowrap; }
+  .list-item p{ margin:3px 0 0; font-size:0.78rem; color:var(--ink-dim); line-height:1.35; }
+  #list-empty{ text-align:center; color:var(--ink-faint); font-size:0.85rem; padding:40px 20px; display:none; }
+
+  #sheet{
+    position:absolute; left:0; right:0; bottom:0; background:var(--bg-raised);
+    border-top:1px solid var(--line); border-radius:18px 18px 0 0;
+    box-shadow:0 -8px 24px rgba(0,0,0,0.4); padding:16px 18px 20px;
+    transform:translateY(110%); transition:transform .28s cubic-bezier(.32,.72,0,1);
+    z-index:30; max-height:64%; overflow-y:auto;
+  }
+  #sheet.open{ transform:translateY(0); }
+  .sheet-handle{ width:36px;height:4px;border-radius:2px; background:var(--line); margin:0 auto 14px; }
+  .sheet-top{ display:flex; gap:12px; align-items:flex-start; }
+  .sheet-icon{
+    width:42px;height:42px;border-radius:50%; display:flex;align-items:center;justify-content:center;
+    font-size:19px; flex-shrink:0; background:var(--dot);
+  }
+  .sheet-cat{ font-size:0.68rem; color:var(--dot); font-weight:600; margin:0 0 2px; }
+  .sheet-top h2{ font-family:'Fraunces',serif; font-weight:600; font-size:1.14rem; margin:0; line-height:1.15; }
+  .sheet-rating{ font-size:0.78rem; color:#E8B94A; font-weight:600; margin-top:4px; }
+  .sheet-rating span{ color:var(--ink-faint); font-weight:500; }
+  .ta-badge{
+    display:inline-flex; align-items:center; gap:3px;
+    background:#34E0A1; color:#0A2E22; font-weight:700; font-size:0.68rem;
+    padding:2px 7px; border-radius:6px; margin-left:6px; vertical-align:middle;
+  }
+  .list-item .ta-badge{ margin-left:4px; }
+  .sheet-close{ margin-left:auto; background:none; border:none; color:var(--ink-faint); font-size:1.3rem; line-height:1; cursor:pointer; padding:4px; }
+  .sheet-blurb{ font-size:0.9rem; color:var(--ink); line-height:1.5; margin:14px 0 4px; }
+  .sheet-tip{ font-size:0.82rem; color:var(--ink-dim); line-height:1.5; margin:0 0 16px; padding-left:14px; border-left:2px solid var(--dot); }
+  .sheet-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn-maps, .btn-nav{ flex:1; min-width:100px; text-align:center; font-weight:600; font-size:0.8rem; padding:12px 8px; border-radius:11px; text-decoration:none; display:block; }
+  .btn-nav{ background:var(--bg); border:1px solid var(--dot); color:var(--ink); }
+  .btn-maps{ flex:1; text-align:center; background:var(--dot); color:#14201F; font-weight:600; font-size:0.85rem; padding:12px; border-radius:11px; text-decoration:none; display:block; }
+
+  #overlay{ position:absolute; inset:0; background:rgba(0,0,0,0.35); opacity:0; pointer-events:none; transition:opacity .25s; z-index:25; }
+  #overlay.open{ opacity:1; pointer-events:auto; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="title-row">
+      <h1>Gran Canaria<span>Hand-picked travel map</span></h1>
+      <div class="count-pill"><b id="shown-count">0</b> / <span id="total-count">0</span> spots</div>
+    </div>
+    <div class="search-row">
+      <input id="search-input" type="text" placeholder="Search spots — “sunset”, “tapas”, “Mogán”…" autocomplete="off">
+      <button class="clear-btn" id="search-clear">✕</button>
+    </div>
+  </header>
+
+  <div class="chips" id="chips"></div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <button class="view-toggle" id="view-toggle">☰ List</button>
+    <div id="list-wrap"><div id="list-empty">No spots match that search.</div></div>
+  </div>
+
+  <div id="overlay"></div>
+  <div id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-top">
+      <div class="sheet-icon" id="sheet-icon"></div>
+      <div>
+        <p class="sheet-cat" id="sheet-cat"></p>
+        <h2 id="sheet-name"></h2>
+        <p class="sheet-rating" id="sheet-rating"></p>
+      </div>
+      <button class="sheet-close" id="sheet-close">✕</button>
+    </div>
+    <p class="sheet-blurb" id="sheet-blurb"></p>
+    <p class="sheet-tip" id="sheet-tip"></p>
+    <div class="sheet-actions">
+      <a class="btn-maps" id="sheet-maps" href="#" target="_blank" rel="noopener">📷 Photos & menu</a>
+      <a class="btn-nav" id="sheet-walk" href="#" target="_blank" rel="noopener">🚶 Walk</a>
+      <a class="btn-nav" id="sheet-drive" href="#" target="_blank" rel="noopener">🚗 Drive</a>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const CATS = {
+  beach:      { label: 'Beaches',        icon: '🌊', hex:'#2FA6A0' },
+  beachclub:  { label: 'Beach clubs',    icon: '🍹', hex:'#E36F6F' },
+  food:       { label: 'Food & drink',   icon: '🍽', hex:'#D97A3D' },
+  viewpoint:  { label: 'Viewpoints',     icon: '🌄', hex:'#E8B94A' },
+  nature:     { label: 'Nature & gems',  icon: '🌿', hex:'#6FA05E' },
+  family:     { label: 'Family fun',     icon: '🎡', hex:'#9A7FC4' },
+  village:    { label: 'Villages',       icon: '🏘', hex:'#B08A5C' },
+  culture:    { label: 'History & culture', icon: '🏺', hex:'#7C93B0' },
+  nightlife:  { label: 'Nightlife',      icon: '🍸', hex:'#C2547D' },
+  shopping:   { label: 'Markets & shopping', icon: '🛍', hex:'#4FA8C9' },
+  adventure:  { label: 'Watersports',    icon: '🏄', hex:'#3FAE8C' },
+};
+
+const SPOTS = [
+  // Beaches
+  {n:'Playa Anfi del Mar', c:'beach', lat:27.7728027, lng:-15.6959011, r:4.6, rc:4708, b:'Imported golden sand and calm, shallow water on the west coast — the closest Gran Canaria gets to a Caribbean postcard.', t:'Sunbeds run around €15/day. Come before 11am in high season.'},
+  {n:'Las Canteras Beach', c:'beach', lat:28.1428538, lng:-15.4337165, r:4.7, rc:16223, b:'A 3km city beach in Las Palmas, sheltered by a natural reef so the water stays calm even when the Atlantic doesn\'t.', t:'Walk the full promenade at sunset — cafés and surfers the whole way.'},
+  {n:'Playa del Inglés', c:'beach', lat:27.7557152, lng:-15.5670392, r:4.5, rc:8348, b:'The south\'s main resort beach — wide golden sand that runs straight into the Maspalomas dunes.', t:'Pair it with a sunset walk into the dunes next door.'},
+  {n:'North Beach Sardina', c:'beach', lat:28.1516863, lng:-15.6962764, r:4.5, rc:2628, b:'A small, colourful cove in a fishing village up north, with clear water good for snorkelling.', t:'Free parking a short walk up the hill; bring water shoes for the rocks.'},
+  {n:'Playa de Tufia', c:'beach', lat:27.9624186, lng:-15.3800896, r:4.6, rc:2156, b:'A quiet black-sand cove by an old fishing hamlet, with none of the resort crowds.', t:'Bring your own food and water — there are no shops or facilities nearby.'},
+  {n:'Playa de San Agustín', c:'beach', lat:27.7689465, lng:-15.5412606, r:4.4, rc:2431, b:'Quieter than its neighbour Playa del Inglés, with gentle waves that make it a favourite for beginner surfers.', t:'Good sunrise spot — very few people around before 8am.'},
+  {n:'Playa del Juncal', c:'beach', lat:28.1170484, lng:-15.7045785, r:4.5, rc:253, b:'A secluded northern cove reached by a scenic coastal hike, with a beach that feels genuinely off the map.', t:'Around a 20-minute walk down from the parking area — wear proper shoes.'},
+
+  // Beach clubs
+  {n:'Perchel Beach Club', c:'beachclub', lat:27.7534823, lng:-15.6752989, r:4.6, rc:1360, b:'An infinity pool and sun terrace stacked above the sea near Puerto Rico — the loungers face the whole horizon.', t:'Book ahead on weekends; the pool-side tables fill up fast.'},
+  {n:'Amadores Beach Club & Spa', c:'beachclub', lat:27.7913255, lng:-15.7266828, r:4.4, rc:4634, b:'A lounge-bar terrace right on Amadores beach, with live sax or violin some evenings and a proper sunset view.', t:'Go for the last two hours of daylight rather than midday.'},
+  {n:'Kai Club Restaurante Beach Club', c:'beachclub', lat:27.7704826, lng:-15.6881901, r:4.3, rc:686, b:'A sleek pool club in Patalavaca with sea-view sunbeds and a kitchen that\'s better than most beach clubs bother with.', t:'There\'s a minimum spend per person — worth it if you\'re staying most of the day.'},
+
+  // Food & drink
+  {n:'Lux 22 Restaurante', c:'food', lat:27.7597796, lng:-15.5710747, r:4.9, rc:361, ta:4.9, tarc:604, b:'A small, quietly excellent tasting-menu restaurant a few minutes from the Yumbo Center, run by a Dutch couple.', t:'Only open Tue–Sat evenings — reserve well in advance.', fav:true},
+  {n:'Restaurante La Cocina Abierta', c:'food', lat:28.1487533, lng:-15.4320029, r:4.9, rc:494, ta:4.9, tarc:52, b:'A warm, family-run Italian-Canarian kitchen in Las Palmas known for its seafood pasta and homemade cake.', t:'No reservation needed most nights, but arrive a little early for a table.'},
+  {n:'Travieso Restaurant', c:'food', lat:27.7594471, lng:-15.5771993, r:4.9, rc:282, b:'A small, intimate dining room in Playa del Inglés that\'s quietly one of the best kitchens in the south.', t:'Limited tables — reserve ahead, especially on weekends.'},
+  {n:'Tapalavaca Yumbo', c:'food', lat:27.7587549, lng:-15.577065, r:4.9, rc:395, b:'A tiny, fiercely loved tapas counter inside the Yumbo Centre, best known for its burger and wrinkled potatoes.', t:'Portions are built for sharing — order a spread rather than one dish each.'},
+  {n:'Viejo Rincón', c:'food', lat:27.8874395, lng:-15.5332222, r:4.8, rc:1260, b:'A mountain tapas spot up a winding road, serving honest Canarian classics like grilled cheese, goat, and rice.', t:'It\'s about 40 minutes from the coast — make the drive part of the day out.'},
+  {n:'I Love Mogán', c:'food', lat:27.8171552, lng:-15.7642751, r:4.8, rc:2245, b:'Waterfront seafood in Puerto de Mogán — pick your fish straight from the counter and watch the harbour go by.', t:'Ask for a table on the water; it\'s worth confirming when you book.'},
+  {n:'Lupé', c:'food', lat:28.1400411, lng:-15.4329943, r:4.8, rc:1108, b:'Contemporary Canarian plates in Las Palmas — plantain starters, duck, and a dessert list worth saving room for.', t:'People wait weeks to get a table — book five days out if you can.'},
+  {n:'Social Tapas', c:'food', lat:27.7563467, lng:-15.5789439, r:4.8, rc:478, b:'Fine-dining tapas behind an unassuming door near the Yumbo — plated like art, with a strong cocktail list.', t:'Doesn\'t look like much from outside — trust the door and go in anyway.'},
+  {n:'El Senador Restaurant & Beach House', c:'food', lat:27.735395, lng:-15.5974216, r:4.7, rc:8252, ta:4.3, tarc:1042, b:'Sea-facing dining in Maspalomas with a lively crowd, good seafood, and one of the better wine lists in the south.', t:'Book for a table right by the water — walk-ins get seated further back.'},
+  {n:'Restaurante LoLa', c:'food', lat:27.7563304, lng:-15.5788843, r:4.7, rc:1661, ta:4.8, tarc:2784, b:'Elegant, unfussy fine dining in Maspalomas with a menu that changes through the year.', t:'Try the wine pairing — it\'s offered by the glass before you commit to the bottle.'},
+  {n:'Restaurante Alma Gaia', c:'food', lat:27.7595291, lng:-15.5675354, r:4.7, rc:540, b:'Live guitar, excellent croquettes, and a wine list that punches well above the average Maspalomas spot.', t:'The steak and tuna are the standouts — ask what\'s freshest that day.'},
+  {n:'Bar-Tapas Club', c:'food', lat:27.7899445, lng:-15.7152192, r:4.6, rc:232, b:'A small Dutch-run tapas bar in Puerto Rico doing genuinely authentic Spanish plates among the tourist-trap chains.', t:'The €65 tapas-and-wine platter for two is the move — order it and share everything.'},
+
+  {n:'Restaurante Origen SteakHouse', c:'food', lat:28.1454271, lng:-15.4304620, r:4.8, rc:1467, b:'A serious steakhouse in Las Palmas where the waitstaff walk you through cuts — Portuguese, Argentinian, Japanese Wagyu — before you order.', t:'Ask them to talk you through the cuts; it\'s part of the experience here.'},
+  {n:'Rincón de Triana', c:'food', lat:28.1388125, lng:-15.4362378, r:4.7, rc:1303, b:'An old-town favourite for slow-cooked suckling pig and pork cheeks, with a tableside guacamole that\'s become part of the show.', t:'Booking is strongly advised — this one fills up fast most nights.'},
+  {n:'Restaurante Qué leche!', c:'food', lat:28.1042769, lng:-15.4170195, r:4.7, rc:862, b:'A small, Michelin-recognised kitchen in Vegueta serving inventive small plates with a Japanese touch — think foie with smoked eel.', t:'Come ready to share — the format is built around ordering several dishes between the table.'},
+  {n:'La Solana Las Palmas', c:'food', lat:28.1375394, lng:-15.4345860, r:4.7, rc:924, b:'A husband-and-wife-run spot near Las Canteras doing local classics with an original twist, especially the croquetas and rice dishes.', t:'The €40 tasting menu is generous — go for it if you\'re not sure what to order.'},
+  {n:'Restaurante Deliciosa Marta', c:'food', lat:28.1064377, lng:-15.4193048, r:4.7, rc:713, b:'A cosy, colonial-style dining room in the old town, single-seating only, where the chef clearly isn\'t rushing anything.', t:'Notoriously hard to book — call ahead rather than trying to walk in.'},
+  {n:'El Rincón de Amadores', c:'food', lat:27.7911174, lng:-15.7244001, r:4.8, rc:528, b:'Fresh seafood platters right on Amadores beach, with a view that does half the work for you.', t:'Ask about the off-menu seafood platter — it\'s bigger and better than what\'s printed.'},
+  {n:'De Strandhut', c:'food', lat:27.7912589, lng:-15.7246351, b:'A beach spot run by friends, in the Centro Comercial Playa de Amadores right by the beach — no public rating yet, but it\'s a personal favorite.', t:'Local 21 in the Amadores shopping centre, right on the beachfront.', fav:true},
+  {n:'Flamingo', c:'food', lat:27.7579711, lng:-15.5791953, r:4.7, rc:18, b:'A family-run, Dutch-owned café near the Yumbo roundabout doing waffles, pancakes, sandwiches, and famously crispy fries.', t:'Ask for the caprese panini or one of the fresh-made sandwiches, and don\'t skip the fries.', fav:true},
+  {n:'L\'Alternativa Ristorante e Pizzeria Italiana', c:'food', lat:27.7915142, lng:-15.7254345, r:4.8, rc:808, b:'Genuine home-style Italian cooking on Amadores beachfront, run by an Italian family with proper seafood linguine.', t:'Good vegan options too — worth mentioning when you book.'},
+  {n:'Margarita Italian Restaurant', c:'food', lat:27.7911710, lng:-15.7244581, r:4.8, rc:322, b:'A beachfront pinsa (Roman-style pizza) spot on Amadores with a Roman chef and genuinely fresh toppings.', t:'Try the pinsa over regular pizza — it\'s their specialty and worth the change-up.'},
+  {n:'Atis Tirma Restaurante', c:'food', lat:27.9054285, lng:-15.4470976, r:4.8, rc:726, b:'A traditional Canarian kitchen in Agüimes with a strong vegetarian selection, including a prickly pear cold soup starter.', t:'It\'s a small kitchen with one cook — expect a slower, unhurried pace.'},
+  {n:'T. G. El Guachinche', c:'food', lat:27.9039421, lng:-15.4490504, r:4.5, rc:1221, b:'A no-frills, family-run Agüimes restaurant serving 15th and 16th-century Canarian recipes exactly as written.', t:'Limited seating and opening days — check hours before making the drive.'},
+  {n:'Ca\' Mario', c:'food', lat:27.9964084, lng:-15.4179277, r:4.7, rc:1231, b:'An elegant, welcoming dining room in Telde worth the drive inland, known for its wine list and rich meat dishes.', t:'A good pick for a celebration — ask about private room seating.'},
+  {n:'ADDIO MARE Telde', c:'food', lat:27.9960278, lng:-15.4166808, r:4.7, rc:1273, b:'A cosy Italian spot in Telde doing proper wood-fired pizza and steak, popular enough that early arrival pays off.', t:'It fills up fast after 7pm — go early or expect to wait for a table.'},
+  {n:'Restaurante La Tunera', c:'food', lat:27.9956359, lng:-15.4170554, r:4.6, rc:734, b:'A Telde restaurant reinterpreting Canarian classics — fried cheese with cactus jam, gofio dessert, pulled pork tacos.', t:'Let the staff guide your order if your Spanish is limited — they\'re used to it.'},
+  {n:'Taberna Tasca Flamboyan', c:'food', lat:28.0030384, lng:-15.4140458, r:4.7, rc:1010, b:'Modern Spanish small plates in Telde, with croquetas locals compare to Dutch bitterballen.', t:'Reservations recommended, especially for dinner.'},
+  {n:'Bochinche ca,tita', c:'food', lat:27.9994483, lng:-15.4177049, r:4.5, rc:2899, b:'A busy, generous-portioned Telde restaurant known for its fried octopus and meat platters big enough to share.', t:'Arrive early or call ahead — a queue builds fast once it opens.'},
+  {n:'THE HOOK COSTA MELONERAS', c:'food', lat:27.7365272, lng:-15.6016658, r:4.9, rc:461, b:'A newer promenade spot in Meloneras with a beautifully set dining room and food that\'s already drawing a loyal following.', t:'Book ahead — word has spread fast since it opened.'},
+  {n:'El Bistro Tapas', c:'food', lat:27.7613588, lng:-15.6821044, r:4.9, rc:882, b:'An unglamorous shopping-centre location in Arguineguín hides some of the most honest, well-made tapas on the island.', t:'Reservations are a must — this one is popular with locals for a reason.'},
+  {n:'LieVITAndo_pizzeria e bar', c:'food', lat:27.7714116, lng:-15.6863800, r:4.9, rc:191, b:'An Italian-run pizzeria in Patalavaca known for its fried pizza (pizza fritta) — a dish most visitors have never tried before.', t:'Order the pizza fritta at least once — it\'s the thing to try here.'},
+  {n:'El Balcón Napoletano', c:'food', lat:27.7707664, lng:-15.6870624, r:4.9, rc:22, b:'A small, family-run Neapolitan spot in Patalavaca with proper thin-crust pizza and homemade pasta.', t:'Ask about the vegetarian lasagna — it\'s a standout on a fairly classic menu.'},
+  {n:'La Canaria Restaurant', c:'food', lat:27.7720753, lng:-15.6909024, r:5.0, rc:11, b:'A resort restaurant above Arguineguín with a generous breakfast buffet and a kitchen that consistently overdelivers.', t:'A good, quieter option if you\'re staying nearby and want a reliable meal without a long drive.'},
+  {n:'Bistro Ferro', c:'food', lat:27.8379075, lng:-15.4500571, r:4.9, rc:393, b:'A stylish, modern-tapas spot in Vecindario doing genuinely inventive plating a world away from typical resort food.', t:'Portions are built for two to share — order a spread rather than one dish each.'},
+  {n:'Restaurante Destino', c:'food', lat:27.8563795, lng:-15.4395270, r:4.9, rc:110, b:'A small Vecindario restaurant turning out beautifully presented Canarian classics at very fair prices.', t:'The beef cheeks with rice are the dish most people order twice.'},
+  {n:'Donde Mario Gran Canaria', c:'food', lat:28.0272325, lng:-15.5371128, r:4.9, rc:90, b:'A relaxed grill restaurant in Vega de San Mateo known for its steaks and generous, well-priced burgers.', t:'Ask to sit on the terrace — it gets warm indoors in summer.'},
+  {n:'La Catedral Bistró', c:'food', lat:28.1190855, lng:-15.5225949, r:4.8, rc:750, b:'A tiny, six-table bistro in Arucas with a real kitchen-view seating and a menu that changes with the seasons.', t:'Only six tables — book ahead, or take your chances walking in right at opening.'},
+  {n:'Mar I Prio', c:'food', lat:28.1191217, lng:-15.5255214, r:4.8, rc:256, b:'A striking, high-ceilinged Italian restaurant in Arucas overlooking the town gardens, known for its truffle pasta.', t:'Ask for a terrace table overlooking the park if the weather\'s good.'},
+  {n:'Restaurante Akara', c:'food', lat:27.7409375, lng:-15.5999534, r:4.7, rc:141, b:'An African-themed hotel restaurant in Meloneras offering something different from the usual resort menus, with careful attention to allergies.', t:'Good for a special-occasion dinner — mention any allergies when booking.'},
+  {n:'Emozione Ristorante Italiano', c:'food', lat:27.7568710, lng:-15.6829376, r:4.8, rc:445, ta:4.9, tarc:81, b:'A tucked-away Italian spot above Arguineguín harbour with fresh pasta and views over the sunset — worth seeking out.', t:'Book a balcony table in advance if you want the harbour view with dinner.'},
+  {n:'Sábor', c:'food', lat:27.8526411, lng:-15.4508939, r:4.8, rc:112, b:'A modern take on Spanish classics in Vecindario, with a cosy dining room that fills up fast on weekends.', t:'A great pick for a slower, celebratory dinner rather than a quick bite.'},
+  {n:'El Efecto Baco', c:'food', lat:28.1451523, lng:-15.6550107, r:4.8, rc:141, b:'A cosy Gáldar restaurant next to the main park, serving generous Canarian plates with real attention to detail.', t:'Ask staff to explain the daily specials — the regular menu barely covers what\'s on offer.'},
+  {n:'Capitan Hook', c:'food', lat:27.8174980, lng:-15.7651784, r:4.8, rc:1290, b:'A nautical-themed Puerto de Mogán favourite with the day\'s catch displayed on ice right outside — grilled octopus is the standout.', t:'Reservations recommended; it fills up fast most evenings.'},
+  {n:'Restaurante Parque Romántico', c:'food', lat:27.7496694, lng:-15.5752051, r:4.8, rc:1309, ta:4.8, tarc:921, b:'A refined, creative kitchen in Maspalomas that regulars compare to Michelin-level dining without the Michelin prices.', t:'Book ahead — it\'s consistently one of the most talked-about tables in the south.'},
+  {n:'Restaurante El Patio (Gáldar)', c:'food', lat:28.1449772, lng:-15.6499842, r:4.7, rc:176, b:'A quiet patio restaurant in Gáldar serving generous portions of local specialties at very fair prices.', t:'A little hidden from the main street — worth the short search.'},
+  {n:'Sunset Taurito Restaurant & Beach Bar', c:'food', lat:27.8149827, lng:-15.7532123, r:4.7, rc:408, b:'A relaxed beachfront spot in Taurito serving burgers, pizza and steak with the sunset as a backdrop.', t:'Time dinner for sunset — the whole terrace faces the right way for it.'},
+  {n:'Tasquita El Escondite', c:'food', lat:27.9912909, lng:-15.4975229, r:4.7, rc:883, b:'A well-regarded tapas restaurant in Valsequillo worth the inland drive for its risotto and grilled beef.', t:'Reservations are strongly recommended, especially on weekends.'},
+  {n:'Taberna Emilio', c:'food', lat:27.8425247, lng:-15.4447689, r:4.7, rc:1477, b:'A local, family-run grill in Vecindario known for fresh fish, homemade lasagna, and honest prices.', t:'Ask about the half-bottle wine option — rare to find elsewhere.'},
+  {n:'Restaurante De Enyesque Arucas', c:'food', lat:28.1173059, lng:-15.5238490, r:4.5, rc:1652, b:'A busy, town-centre Arucas restaurant known for grilled octopus and generous portions at low prices.', t:'Expect a lively local crowd — it\'s a favourite well beyond tourists.'},
+  {n:'Emblemática Rooftop', c:'food', lat:28.1189813, lng:-15.5234514, r:4.6, rc:1781, b:'A relaxed rooftop terrace in Arucas with views of the cathedral and a solid rice and cocktail menu.', t:'Mind the steep steps up to the terrace on arrival.'},
+  {n:'Terraza el Patio', c:'food', lat:28.1083525, lng:-15.5060461, r:4.6, rc:811, b:'An outdoor terrace restaurant near Arucas known especially for its paella and rich, homemade cheesecake.', t:'The paella is the dish to order — ask if it needs to be requested in advance.'},
+  {n:'Restaurante Kobe 96', c:'food', lat:27.7365006, lng:-15.6017206, r:4.6, rc:1569, b:'A lively oceanfront restaurant in Meloneras known as much for its cocktail program as its Japanese-leaning menu.', t:'Ask for the bartender\'s recommendation — the cocktail list is a real highlight here.'},
+  {n:'Samsara', c:'food', lat:27.7385490, lng:-15.5954153, r:4.6, rc:1304, b:'An Asian-fusion restaurant near Maspalomas set among palms, with a jungle-like setting that surprises first-time visitors.', t:'Portions are large — order fewer dishes than you\'d expect and share.'},
+  {n:'Restaurante Las Orcas', c:'food', lat:27.7607982, lng:-15.6838692, r:4.6, rc:215, b:'A sea-view restaurant in Arguineguín good for gluten-free diners, with a reliable seafood paella.', t:'Mention dietary needs when booking — the kitchen is well set up to adapt dishes.'},
+  {n:'Restaurante Grill Cueva Pirata', c:'food', lat:27.7684571, lng:-15.6875236, r:4.6, rc:549, b:'A grill restaurant in Patalavaca built partly into a cave, with a cosy terrace and generous meat platters.', t:'Good for celebrations — the cave dining room can be booked for groups.'},
+  {n:'By Rocio Bar Gastronómico', c:'food', lat:27.7708275, lng:-15.6891816, r:4.6, rc:189, b:'A small beachfront spot in Patalavaca with front-row sunset seating and a strong tuna tataki.', t:'Book the 5:45pm slot if you want a front-row table for sunset.'},
+  {n:'El Sitio Ibérico', c:'food', lat:27.8485854, lng:-15.4417482, r:4.6, rc:1150, b:'A well-loved Vecindario restaurant with live music some nights and a hot-stone steak you finish cooking yourself.', t:'Weekend evenings sometimes have live singers — ask what\'s on when booking.'},
+  {n:'Restaurante Marisquería Rías Bajas', c:'food', lat:27.7577689, lng:-15.5783979, r:4.6, rc:1569, b:'A proper seafood restaurant in Maspalomas known for its zarzuela (mixed seafood stew) and reliably fresh fish.', t:'Ask about the zarzuela — it\'s the dish the regulars order.'},
+
+  {n:'Way2Brothers Restaurante', c:'food', lat:27.7611707, lng:-15.5787675, r:4.8, rc:994, ta:4.8, tarc:410, b:'A Polish-run pizza and burger spot in Maspalomas making Roman-style pizza fermented 48 hours, plus a craft Angus burger menu with a cult following.', t:'Tables are limited indoors — book ahead, especially for dinner.'},
+  {n:'Ibéricos J. Cruz', c:'food', lat:27.7683314, lng:-15.5770056, r:4.7, rc:734, ta:4.9, tarc:1531, b:'A tapas-strip favourite on Calle San Fernando in Maspalomas, known for its Wagyu beef tartare and generous sharing plates.', t:'Highly ranked on TripAdvisor — reserve ahead, it fills up fast on weekends.'},
+  {n:'Marco Polo Restaurant', c:'food', lat:27.752022, lng:-15.5748433, r:4.5, rc:914, ta:4.5, tarc:847, b:'An Italian-steakhouse hybrid above Playa del Inglés doing everything from pizza to hot-stone steak for large groups.', t:'A good pick for bigger tables — the menu covers a lot of ground.'},
+  {n:'Namaste Bharat', c:'food', lat:27.7586101, lng:-15.5770747, r:4.8, rc:696, ta:4.8, tarc:550, b:'An Indian restaurant on the top floor of the Yumbo Centre, often called some of the best Indian food on the island.', t:'The garlic naan and mango lassi come up again and again in reviews.'},
+  {n:'Wapa Tapa', c:'food', lat:27.7586644, lng:-15.5770509, r:4.5, rc:1440, ta:4.7, tarc:4140, b:'A lively, creative tapas restaurant inside the Yumbo Centre with a strong reputation for gluten-free and celiac-friendly cooking.', t:'Reserve through their website — walk-ins often can\'t get a table.'},
+  {n:'West End Restaurant', c:'food', lat:27.7619194, lng:-15.5649394, r:4.7, rc:3224, ta:4.7, tarc:2076, b:'A burger-and-steakhouse in Maspalomas with a big menu and an even bigger following among visitors.', t:'Busy most nights — go early if you\'d rather not wait.'},
+  {n:'Cibarivm', c:'food', lat:27.771959, lng:-15.5418261, r:4.9, rc:331, ta:4.9, tarc:230, b:'A small, owner-run tasting-menu restaurant in San Agustín built around playful, unexpected ingredient pairings.', t:'Go for the tasting menu — it\'s the whole point of the place.'},
+  {n:'Restaurante Sidecar', c:'food', lat:27.7818386, lng:-15.6494561, r:4.7, rc:205, ta:4.8, tarc:410, b:'An inventive tapas restaurant near Salobre with a tasting menu regulars compare to Michelin-level cooking.', t:'A bit out of the way — worth the drive if you want a proper tasting menu.'},
+  {n:'Trattoria Anima Sarda', c:'food', lat:27.7650402, lng:-15.5894145, r:4.8, rc:404, ta:4.7, tarc:146, b:'A homely Sardinian restaurant in Sonnenland known for its seafood platters and genuinely warm hospitality.', t:'The grilled fish platter for two is generous enough for three.'},
+  {n:'La Viña del Puerto', c:'food', lat:28.1483349, lng:-15.4285873, r:4.9, rc:269, ta:4.9, tarc:55, b:'An intimate wine bar in Las Palmas with an exceptional list of Canarian natural wines and a small, well-executed menu.', t:'Reservations recommended — it\'s full of locals most nights.'},
+  {n:'La Bellota Extremeña', c:'food', lat:28.1411803, lng:-15.4339139, r:4.6, rc:452, ta:4.7, tarc:206, b:'A Las Palmas favourite for Spanish charcuterie, cheese, and canned fish done properly.', t:'Ask about the off-menu specials — they often beat what\'s printed.'},
+  {n:'Aguaviva Playa Chica', c:'food', lat:28.1400308, lng:-15.4354494, r:4.7, rc:424, ta:4.8, tarc:56, b:'A no-frills seafood restaurant near Playa Chica in Las Palmas known for its paella and fresh fish.', t:'Ask about the paella — it needs to be ordered in advance for the table.'},
+  {n:'Segundo Muelle', c:'food', lat:28.122254, lng:-15.4271409, r:4.3, rc:1491, ta:4.1, tarc:776, b:'A Peruvian restaurant in Las Palmas with ceviche, pisco sours, and ambitious rice dishes.', t:'The risottos and ceviche are the dishes most people come back for.'},
+  {n:'Poemas by Hermanos Padrón', c:'food', lat:28.1211775, lng:-15.4284076, r:4.7, rc:176, ta:4.6, tarc:131, b:'A Michelin-recognised tasting-menu restaurant inside the Santa Catalina hotel in Las Palmas, built around small, creative bites.', t:'Book well ahead — this is one of the island\'s most talked-about tasting menus.'},
+  {n:'Majuga Restaurante', c:'food', lat:28.1066931, lng:-15.4195262, r:4.7, rc:471, ta:4.6, tarc:506, b:'A fine-dining fish restaurant in Las Palmas known for exceptionally fresh seafood and thoughtful wine pairings.', t:'Worth the drive from the south — regulars call it worth every kilometre.'},
+  {n:'Bululu Canarias', c:'food', lat:28.135882, lng:-15.4373883, r:4.6, rc:1431, ta:4.3, tarc:312, b:'A Venezuelan restaurant near the sea in Las Palmas known for its arepas and cachapas.', t:'Try the cachapita — it\'s the dish most reviewers recommend first.'},
+  {n:'Abrasa Grill', c:'food', lat:27.7709637, lng:-15.5886512, r:4.7, rc:1446, ta:4.7, tarc:1782, b:'A grill restaurant in San Fernando known for exceptional steaks and genuinely careful handling of dietary requests.', t:'Ask about gluten-free options — the kitchen handles them well.'},
+  {n:'Gorbea Restaurant & Chill Out', c:'food', lat:27.7723219, lng:-15.5470533, r:4.4, rc:438, ta:4.7, tarc:2703, b:'A rooftop restaurant and lounge above the Gloria Palace hotel in San Agustín with sweeping views out to the Maspalomas dunes.', t:'Time your visit for sunset — the rooftop view is the main event.'},
+  {n:'Debby\'s Kitchen', c:'food', lat:27.7609739, lng:-15.5659519, r:4.6, rc:665, b:'A Dutch-owned, Frisian-run family restaurant in Playa del Inglés mixing Spanish and seafood dishes with big portions and a genuine local following.', t:'Ask about the daily special menu — regulars swear by it.', fav:true},
+  {n:'Miss Asia', c:'food', lat:27.7549074, lng:-15.5785224, r:4.5, rc:763, b:'A big, no-frills Asian menu near the Yumbo Center — sushi, wontons, and stir-fries, with plenty of vegan options too.', t:'Try the fried wontons to start and the fried ice cream for dessert.', fav:true},
+  {n:'Valentine\'s', c:'food', lat:27.7586564, lng:-15.5765088, r:4.5, rc:918, b:'A cosy, long-running favourite overlooking the Yumbo square, warm and unpretentious with a menu that keeps regulars coming back year after year.', t:'The prawns in lobster sauce are the dish to order here.', fav:true},
+  {n:'El Churrasco', c:'food', lat:27.7362253, lng:-15.6008705, r:4.1, rc:3346, b:'An Argentinian steakhouse by the Lopesan hotel in Meloneras, known for its chateaubriand and proper South American grill style.', t:'The chateaubriand is the standout — good for sharing between two.', fav:true},
+  {n:'Restaurante Grand Italia', c:'food', lat:27.7368222, lng:-15.6021667, r:3.7, rc:3276, b:'A big, buzzing Italian restaurant in Meloneras\' Boulevard El Faro with a huge menu covering pizza, pasta, and more unusual mains like ostrich.', t:'It runs like clockwork even when full — a reliable pick on a busy night.', fav:true},
+
+  // Viewpoints (north & extra)
+  {n:'Mirador del Pico de las Nieves', c:'viewpoint', lat:27.9620253, lng:-15.5719044, r:4.8, rc:7756, b:'One of the island\'s highest points — on the right day you\'re standing above the clouds.', t:'Bring a jacket; it\'s often 10–15°C cooler than the coast.'},
+  {n:'Mirador de Puerto de Mogán', c:'viewpoint', lat:27.8190876, lng:-15.7663488, r:4.8, rc:606, b:'A steep 257-step climb above Puerto de Mogán\'s harbour, rewarded with the best photo angle on "Little Venice".', t:'Bring water for the climb — it\'s short but genuinely steep in parts.'},
+  {n:'Mirador Llanos de La Mimbre', c:'viewpoint', lat:28.0610386, lng:-15.6965949, r:4.8, rc:359, b:'A forested viewpoint above Agaete on the north face, often catching a dramatic sea of clouds below the platform.', t:'Temperatures drop fast here — bring a layer even on a warm day.'},
+  {n:'Mirador Plaza de Candelaria', c:'viewpoint', lat:28.1108224, lng:-15.5844746, r:4.7, rc:24, b:'A quiet square-side viewpoint in Moya overlooking a lush green ravine — a different, wetter side of the island.', t:'Combine it with a stroll through Moya\'s old town and church.'},
+  {n:'Mirador de Montaña Alta', c:'viewpoint', lat:28.0868286, lng:-15.6201128, r:4.7, rc:21, b:'A 360° lookout above Guía reached by a short climb, taking in the north coast, ravines, and part of Las Palmas.', t:'Time it before 2pm and stop at the cheese house at the base afterward.'},
+  {n:'Roque del Este Viewpoint', c:'viewpoint', lat:27.7872722, lng:-15.7073867, r:4.6, rc:40, b:'A paved, railed lookout above Puerto Rico with sea on one side and mountains on the other — a favourite for sunset.', t:'One of the easier miradores to reach — flat, paved parking right at the top.'},
+  {n:'Mirador del Balcón', c:'viewpoint', lat:28.0193929, lng:-15.7851337, r:4.8, rc:9005, b:'Sheer cliffs drop straight into the Atlantic here, with Tenerife visible on a clear day.', t:'The mountain road is narrow — go slow and use the horn on blind bends.'},
+  {n:'Mirador Degollada de Becerra', c:'viewpoint', lat:27.9888373, lng:-15.5932475, r:4.8, rc:1245, b:'Widely considered the best sunset view on the island, looking straight across the valley to Roque Nublo.', t:'Arrive 30–40 minutes before sunset to get a spot at the rail.'},
+  {n:'Mirador Pico de la Gorra', c:'viewpoint', lat:28.0160405, lng:-15.6032926, r:4.8, rc:243, b:'A roadside viewpoint over Tejeda and the highlands, with a bench and rubbish bin so people actually stop.', t:'A relaxed alternative if the busier miradores nearby feel crowded.'},
+  {n:'Mirador El Mulato', c:'viewpoint', lat:27.9083555, lng:-15.6960568, r:4.7, rc:800, b:'A hairpin mountain road opens onto a valley view down to a small village and the sea beyond.', t:'A good rest stop if you\'re driving between Mogán and the highlands.'},
+  {n:'Mirador Roque Nublo', c:'viewpoint', lat:27.9757708, lng:-15.5896873, r:4.7, rc:141, b:'The classic lookout toward Roque Nublo itself, especially striking as the sun drops behind Tenerife.', t:'Free timed entry tickets are required in peak hours — book ahead online.'},
+
+  // Nature & hidden gems
+  {n:'Dunas de Maspalomas', c:'nature', lat:27.7405705, lng:-15.5750958, r:4.8, rc:21825, b:'400 hectares of rolling desert dunes that end abruptly at the ocean, with a saltwater lagoon and palm grove inside.', t:'Sunset turns the sand gold — go in the last hour before dusk.'},
+  {n:'Ruta de La Plata', c:'nature', lat:27.9391793, lng:-15.6019463, r:4.8, rc:53, b:'An old shepherds\' and pilgrims\' trail through cobblestone paths and pine alleys, climbing to almost 1,600m.', t:'Sturdy shoes essential — some stretches are loose rock and narrow.'},
+  {n:'Ventana del Nublo', c:'nature', lat:27.9522303, lng:-15.5969841, r:4.8, rc:655, b:'A natural rock arch reached by an easy 30-minute walk, with arguably a better view than Roque Nublo itself.', t:'Park at the Bailico camping area — the path isn\'t clearly signed from the road.'},
+  {n:'Roque Nublo', c:'nature', lat:27.9683333, lng:-15.6108333, r:4.7, rc:3086, b:'An 80m volcanic monolith and the island\'s most recognisable landmark, reached by a moderate hike from the car park.', t:'The trail up is roughly 1 hour each way — start early to beat the heat.'},
+  {n:'Tamadaba Natural Park', c:'nature', lat:28.0453914, lng:-15.7466678, r:4.7, rc:3683, b:'Dense Canary pine forest in the northwest, a world away from the dry south of the island.', t:'Download offline trail maps first — signal disappears fast in the forest.'},
+  {n:'Piscinas Naturales de Agaete', c:'nature', lat:28.1067480, lng:-15.7112074, r:4.7, rc:4791, b:'Natural swimming pools carved into black lava rock on the northwest coast, just past Puerto de las Nieves.', t:'The rock is sharp underfoot — sea shoes make a real difference.'},
+  {n:'El Confital', c:'nature', lat:28.1595866, lng:-15.4358131, r:4.7, rc:1220, b:'A wild, undeveloped stretch of coast just past Las Canteras, popular with surfers and sunset walkers.', t:'Climb the small hill at the end for a view back over the whole city.'},
+  {n:'Los Azulejos', c:'nature', lat:27.9263366, lng:-15.7246803, r:4.6, rc:282, b:'Rainbow-streaked volcanic rock formations along a mountain road, with a rustic juice bar built into the view.', t:'The waterfall path is easy to miss — ask at the juice bar for directions.'},
+  {n:'El Bufadero (La Garita)', c:'nature', lat:28.0028982, lng:-15.3742243, r:4.6, rc:6330, b:'A natural blowhole where the Atlantic forces spray straight up through volcanic rock — dramatic at high tide.', t:'Watch from a safe distance — the surge arrives with no warning.'},
+  {n:'Barranco de Las Vacas', c:'nature', lat:27.915035, lng:-15.4755112, r:4.4, rc:4103, b:'A narrow, Arizona-style slot canyon carved into orange rock, tucked just off a mountain road near Agüimes.', t:'Not clearly signed — look for roadside parking about 5km past town on a hairpin bend.'},
+  {n:'Parque Rural de Doramas', c:'nature', lat:28.0873566, lng:-15.5826125, r:4.5, rc:2338, b:'A lush, green mountain park in the north with banana plantations and sweeping ocean views on the drive up.', t:'You don\'t need a car — local buses run up from the coast.'},
+  {n:'Cueva de los Mil Colores', c:'nature', lat:28.0094250, lng:-15.3757313, r:3.9, rc:509, b:'A striped, rainbow-coloured sea cave near La Garita, also known as Cueva de la Reina Mora — only reachable at low tide.', t:'Check the tide tables before you go; it floods completely at high tide.'},
+
+  // Family & activities
+  {n:'Cocodrilo Park', c:'family', lat:27.8871098, lng:-15.4677905, r:4.5, rc:7159, b:'A rescue-centre zoo east of Agüimes with crocodiles, birds, and a handful of feeding shows through the day.', t:'Time your visit around a show — check the board by the entrance.'},
+  {n:'Sioux City Park', c:'family', lat:27.78639, lng:-15.534904, r:4.6, rc:2077, b:'A theatrical Wild West set built for a 1970s film shoot, now running saloon shows, horses, and stunts.', t:'A free shuttle bus runs from Puerto Rico — check the timetable in advance.'},
+  {n:'Cactualdea Park', c:'family', lat:27.9587141, lng:-15.7803896, r:4.4, rc:2545, b:'A quiet valley garden packed with cacti from three continents, plus roaming peacocks.', t:'Budget about 2 hours to see it properly, and visit the small café.'},
+
+  // Villages
+  {n:'Puerto de Mogán', c:'village', lat:27.8164592, lng:-15.7640482, r:4.6, rc:27549, b:'A candy-coloured marina town with canals, flower-draped balconies, and a clean, family-friendly beach — locals call it "Little Venice".', t:'Come by boat or bus from the south rather than driving — parking is limited.'},
+  {n:'Fataga', c:'village', lat:27.8876152, lng:-15.5640107, r:4.6, rc:1204, b:'A tiny mountain village of traditional stone houses at the head of a palm-filled valley.', t:'Stop at the bar by the church for a cold drink after the winding drive up.'},
+  {n:'Paseo de Canarias, Firgas', c:'village', lat:28.1070329, lng:-15.5631802, r:4.6, rc:4159, b:'A stepped mosaic waterfall in a small highland town, with a bench dedicated to every municipality on the island.', t:'The water only runs some days — worth checking, but the mosaics are the real draw.'},
+  {n:'Teror', c:'village', lat:28.0593449, lng:-15.5478562, r:4.7, rc:8521, b:'A postcard highland town of carved wooden balconies, home to the basilica of the island\'s patron saint.', t:'Visit on a Sunday for the weekly market that fills the main square.'},
+
+  // History & culture
+  {n:'Museo Etnográfico Casas Cueva de Artenara', c:'culture', lat:28.0192697, lng:-15.6454633, r:4.8, rc:1248, b:'Furnished cave homes carved into the cliffside, showing how people actually lived here for generations.', t:'Entry is free — a small donation at the door is appreciated.'},
+  {n:'Cueva Pintada Museum', c:'culture', lat:28.1441363, lng:-15.6551741, r:4.6, rc:5591, b:'An archaeological park in Gáldar built around a painted cave from the island\'s pre-colonial past.', t:'The guided tour is worth the small extra cost over a self-guided visit.'},
+  {n:'Cenobio de Valerón', c:'culture', lat:28.1387058, lng:-15.6037841, r:4.5, rc:3677, b:'Hundreds of hand-carved grain storage caves cut into a cliff face by the island\'s original inhabitants.', t:'Free parking at the entrance; the visit itself takes under an hour.'},
+  {n:'Casa de Colón', c:'culture', lat:28.1015804, lng:-15.4140442, r:4.5, rc:7587, b:'A restored colonial mansion in Las Palmas\' old town tracing Columbus\'s stop on the island en route to the Americas.', t:'Free entry on Sundays; look up at the ceiling in the cartographer\'s room.'},
+  {n:'Museo Canario', c:'culture', lat:28.0996848, lng:-15.4152456, r:4.5, rc:2595, b:'A compact museum on the island\'s original Guanche inhabitants, with an unusually large collection of preserved remains.', t:'The extra audio-guide fee is worth it — the displays have little English signage.'},
+
+  // Nightlife
+  {n:'Tipsy Hammock', c:'nightlife', lat:27.7540342, lng:-15.5686194, r:4.6, rc:7875, b:'A beachfront cocktail bar and grill in Playa del Inglés with an energetic, all-day crowd.', t:'Expect a wait for a table at peak times — it\'s deservedly popular.'},
+  {n:'Reina De La Noche', c:'nightlife', lat:28.1373854, lng:-15.4367909, r:4.7, rc:1087, b:'A late-night karaoke and cocktail bar in Las Palmas with a QR-code song list and a lively local crowd.', t:'Doesn\'t open until 10–11pm — this is a well-after-dinner stop.'},
+  {n:'Secret Garden', c:'nightlife', lat:27.7580384, lng:-15.5773168, r:4.5, rc:347, b:'A hidden rooftop cocktail bar above the Yumbo Centre — leafy, low-key, and a break from the noise below.', t:'Easy to walk past — look for the stairs up from ground level.'},
+  {n:'Sparkles', c:'nightlife', lat:27.7583579, lng:-15.5775521, r:4.4, rc:871, b:'A drag and cabaret show bar in the Yumbo Centre known for a genuinely funny, high-energy set.', t:'Shows run late — arrive by 11pm to get a good seat.'},
+  {n:'Yumbo Centre', c:'nightlife', lat:27.7581264, lng:-15.5768683, r:4.0, rc:26133, b:'A shopping centre by day, and the south\'s biggest, most colourful nightlife hub after dark.', t:'Go once after 9pm even if you\'re not planning to stay — it\'s a scene in itself.'},
+  {n:'Café del Mar Meloneras', c:'nightlife', lat:27.7360377, lng:-15.6005106, r:4.4, rc:3923, b:'A beachfront lounge-bar in Meloneras with live sax, violin, and acrobatic performers most evenings — a proper dinner-and-a-show setting for a nightcap.', t:'Arrive just before sunset for the best table and the start of the evening\'s entertainment.', fav:true},
+
+  // Markets & shopping
+  {n:'Mogán Mall', c:'shopping', lat:27.7951686, lng:-15.7048611, r:4.5, rc:9538, b:'An open-air shopping centre in Puerto Rico with a dancing fountain show and a wide mix of shops and dining.', t:'A free shuttle bus connects it to Maspalomas if you\'re not driving.'},
+  {n:'Las Arenas Shopping Center', c:'shopping', lat:28.1290264, lng:-15.4495803, r:4.4, rc:40353, b:'A large, modern mall right by Las Canteras beach — international brands, a cinema, and terraces with sea views.', t:'It\'s the biggest mall in Las Palmas; leave time to actually cross it end to end.'},
+  {n:'Boulevard El Faro', c:'shopping', lat:27.7358269, lng:-15.6004193, r:4.4, rc:5895, b:'A clean seafront promenade in Meloneras lined with boutiques, restaurants and a lighthouse — best walked at sunset.', t:'Shops close around 10pm — go earlier if browsing is the goal, later for dinner.'},
+  {n:'Shopping Center Puerto Rico', c:'shopping', lat:27.7905938, lng:-15.7083308, r:4.0, rc:8454, b:'The lively, slightly retro heart of Puerto Rico, packed with shops, bars, and restaurants that stay busy into the night.', t:'Combine it with the market and beach — it\'s a short, pleasant walk down to the water.'},
+  {n:'Centro Comercial Las Terrazas', c:'shopping', lat:28.0279346, lng:-15.3938128, r:4.3, rc:13212, b:'An open-air outlet mall near Telde with ocean views, a supermarket, and a wide mix of discounted well-known brands.', t:'It\'s outdoors on terraces — check the forecast before you go.'},
+  {n:'Las Canteras LifeStyle', c:'shopping', lat:28.1428979, lng:-15.4329919, r:4.8, rc:27, b:'A small, beach-themed boutique right by Las Canteras with jewellery and clothing sourced from ethical collectives.', t:'A good stop for a gift that isn\'t another fridge magnet.'},
+  {n:'Galeria Vegueta', c:'shopping', lat:28.1015796, lng:-15.4154591, r:4.7, rc:60, b:'A small shop in the old town of Vegueta selling genuinely local, handmade jewellery and crafts rather than mass souvenirs.', t:'Ask the owner about the pieces — most have a story behind them.'},
+  {n:'Curiosity Shop', c:'shopping', lat:28.1360862, lng:-15.4391620, r:4.5, rc:592, b:'An eccentric little shop on the Las Canteras promenade packed with crystals, tarot cards, and genuine oddities.', t:'Go in with no shopping list — it\'s a browse-and-discover kind of place.'},
+  {n:'The Tree Shop', c:'shopping', lat:28.1338134, lng:-15.4319652, r:5.0, rc:13, b:'A small women\'s fashion boutique in Las Palmas known for personal service and quality fabrics you won\'t find in the chains.', t:'Check their website first if you want to see what\'s in stock before visiting.'},
+  {n:'Mercado Central de Las Palmas', c:'shopping', lat:28.1334436, lng:-15.4327632, r:4.4, rc:5307, b:'A proper working market hall with fresh produce, fish, and cheese — less touristy, more how locals shop.', t:'Go in the morning for the best selection; grab coffee at one of the stalls.'},
+  {n:'Mercado Agrícola y Artesanal de Vega de San Mateo', c:'shopping', lat:28.0084883, lng:-15.5318698, r:4.4, rc:3178, b:'A busy farmers\' market in the highlands with local cheeses, honey, and live music some weekends.', t:'Best before 3pm on a Sunday — stalls thin out and close early.'},
+  {n:'The Market, Puerto Rico', c:'shopping', lat:27.793529, lng:-15.7062852, r:4.4, rc:2721, b:'A relaxed food and shopping arcade a short walk up from Puerto Rico beach.', t:'A pleasant 30-minute walk from the beach through the town.'},
+
+  // Watersports & adventure
+  {n:'Pro Surfing Company', c:'adventure', lat:27.7655766, lng:-15.5710138, r:5.0, rc:976, b:'A well-organised surf and kitesurf school in Maspalomas offering lessons for complete beginners and families.', t:'Hotel pickup and drop-off is included — no need to arrange your own transport.'},
+  {n:'MOJOSURF Surfcamp', c:'adventure', lat:28.1313373, lng:-15.4434197, r:4.9, rc:2377, b:'A social surf camp and school in Las Palmas with lessons for every level and a lively hostel scene attached.', t:'Book a multi-day package if you\'re serious about progressing quickly.'},
+  {n:'OCEANSIDE Surf School', c:'adventure', lat:28.1307253, lng:-15.4448634, r:4.8, rc:1040, b:'A long-running surf school on Las Canteras beach known for genuinely attentive, safety-first instructors.', t:'Free lockers and showers are included with board and wetsuit hire.'},
+  {n:'Calypso Dive Center', c:'adventure', lat:27.7645708, lng:-15.6007314, r:4.5, rc:96, b:'A PADI dive centre running boat and coastal dives out of Puerto de Mogán, with regular ray and shark sightings.', t:'Hotel pickup is included — the boat departs from the Mogán harbour.'},
+  {n:'Water Sports Luis Molina', c:'adventure', lat:27.7723426, lng:-15.6968141, r:4.0, rc:463, b:'Jet ski, parasailing, and banana-boat rides right off Anfi beach.', t:'Book the parasailing for late afternoon — calmer winds, better light.'},
+];
+
+// price tier data (1=€ .. 4=€€€€) from Google Places, applied where available
+const PRICE_MAP = {
+  'Lupé':2, 'Restaurante Qué leche!':3, 'Restaurante Origen SteakHouse':3, 'Rincón de Triana':3,
+  'La Solana Las Palmas':3, 'Restaurante Deliciosa Marta':3, 'Restaurante La Cocina Abierta':2,
+  'El Rincón de Amadores':2, 'Amura Restaurant':2, 'Andais':2, 'Ciao Amadores':2,
+  'Margarita Italian Restaurant':2, 'L\'Alternativa Ristorante e Pizzeria Italiana':2,
+  'Atis Tirma Restaurante':2, 'T. G. El Guachinche':2, 'Caribian':2, 'Bochinche ca,tita':2,
+  'Ca\' Mario':2, 'ADDIO MARE Telde':2, 'Restaurante La Tunera':2, 'Taberna Tasca Flamboyan':2,
+  'THE HOOK COSTA MELONERAS':3, 'El Senador Restaurant & Beach House':3, 'Restaurante Kobe 96':3,
+  'Café del Mar Meloneras':3, 'La Terraza by El Oasis':2, 'Samsara':3, 'Restaurante Akara':3,
+  'El Bistro Tapas':2, 'Emozione Ristorante Italiano':2, 'La Canaria Restaurant':2,
+  'Restaurante Las Orcas':2, 'El Balcón Napoletano':2, 'Restaurante Grill Cueva Pirata':2,
+  'By Rocio Bar Gastronómico':2, 'LieVITAndo_pizzeria e bar':2, 'La Catedral Bistró':3,
+  'Restaurante De Enyesque Arucas':2, 'Emblemática Rooftop':2, 'Mar I Prio':2,
+  'Terraza el Patio':2, 'Bistro Ferro':2, 'El Sitio Ibérico':2, 'Taberna Emilio':2, 'Sábor':3,
+  'Restaurante Destino':2, 'Restaurante El Patio (Gáldar)':2, 'El Efecto Baco':2,
+  'Donde Mario Gran Canaria':2, 'Tasquita El Escondite':2, 'Restaurante Marisquería Rías Bajas':3,
+  'Restaurante LoLa':3, 'Lux 22 Restaurante':4, 'Sunset Taurito Restaurant & Beach Bar':2,
+  'Capitan Hook':2, 'Restaurante Parque Romántico':3, 'Way2Brothers Restaurante':2,
+  'Debby\'s Kitchen':2, 'Miss Asia':2, 'Valentine\'s':3, 'El Churrasco':3,
+  'Restaurante Grand Italia':2, 'Flamingo':2,
+};
+SPOTS.forEach(s=>{ if(PRICE_MAP[s.n]) s.p = PRICE_MAP[s.n]; });
+
+// favorites first, then sort every category-group by rating desc, then by review count desc as tiebreaker
+SPOTS.sort((a,b)=> (b.fav?1:0)-(a.fav?1:0) || (b.r||0) - (a.r||0) || (b.rc||0) - (a.rc||0));
+SPOTS.forEach((s,i)=> s.id = i);
+
+function fmtCount(n){
+  if(n >= 1000) return (n/1000).toFixed(n % 1000 >= 100 ? 1 : 1).replace(/\.0$/,'') + 'k';
+  return String(n);
+}
+
+// ---------- Build chips ----------
+const chipsEl = document.getElementById('chips');
+const active = new Set(Object.keys(CATS));
+let searchQuery = '';
+
+function countFor(cat){ return SPOTS.filter(s=>s.c===cat).length; }
+
+const allChip = document.createElement('div');
+allChip.className = 'chip active';
+allChip.id = 'chip-all';
+allChip.style.setProperty('--dot', '#F3ECE0');
+allChip.innerHTML = `<span class="dot"></span>All · ${SPOTS.length}`;
+chipsEl.appendChild(allChip);
+document.getElementById('total-count').textContent = SPOTS.length;
+
+let favOnly = false;
+const favCount = SPOTS.filter(s=>s.fav).length;
+const favChip = document.createElement('div');
+favChip.className = 'chip fav-chip inactive';
+favChip.innerHTML = `⭐ My favorites · ${favCount}`;
+favChip.addEventListener('click', ()=>{
+  favOnly = !favOnly;
+  favChip.classList.toggle('inactive', !favOnly);
+  refreshMarkers();
+  buildList();
+});
+chipsEl.appendChild(favChip);
+
+Object.entries(CATS).forEach(([key, def])=>{
+  const chip = document.createElement('div');
+  chip.className = 'chip active';
+  chip.dataset.cat = key;
+  chip.style.setProperty('--dot', def.hex);
+  chip.innerHTML = `<span class="dot"></span>${def.icon} ${def.label} · ${countFor(key)}`;
+  chip.addEventListener('click', ()=>toggleCat(key));
+  chipsEl.appendChild(chip);
+});
+
+function toggleCat(key){
+  if(active.has(key)){ active.delete(key); } else { active.add(key); }
+  refreshChipStates();
+  refreshMarkers();
+  buildList();
+}
+function refreshChipStates(){
+  document.querySelectorAll('.chip[data-cat]').forEach(el=>{
+    el.classList.toggle('active', active.has(el.dataset.cat));
+  });
+  allChip.classList.toggle('active', active.size === Object.keys(CATS).length);
+}
+allChip.addEventListener('click', ()=>{
+  if(active.size === Object.keys(CATS).length){ active.clear(); }
+  else { Object.keys(CATS).forEach(k=>active.add(k)); }
+  refreshChipStates();
+  refreshMarkers();
+  buildList();
+});
+
+function matchesSearch(spot){
+  if(!searchQuery) return true;
+  const q = searchQuery.toLowerCase();
+  return spot.n.toLowerCase().includes(q) ||
+         spot.b.toLowerCase().includes(q) ||
+         CATS[spot.c].label.toLowerCase().includes(q);
+}
+function isVisible(spot){
+  if(favOnly) return !!spot.fav && matchesSearch(spot);
+  return active.has(spot.c) && matchesSearch(spot);
+}
+
+// ---------- Map ----------
+const map = L.map('map', { zoomControl:false, attributionControl:true }).setView([27.94, -15.585], 10);
+const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+  maxZoom: 19
+});
+const roadsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19, pane: 'overlayPane'
+});
+const labelsLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19, pane: 'overlayPane'
+});
+satelliteLayer.addTo(map);
+roadsLayer.addTo(map);
+labelsLayer.addTo(map);
+L.control.zoom({ position:'bottomright' }).addTo(map);
+
+const markers = {};
+
+function makeIcon(spot, selected){
+  const def = CATS[spot.c];
+  const favClass = spot.fav ? ' fav' : '';
+  const star = spot.fav ? '<span class="fav-star">⭐</span>' : '';
+  return L.divIcon({
+    className:'',
+    html:`<div class="pin${selected?' selected':''}${favClass}" style="background:${def.hex}"><span>${def.icon}</span>${star}</div>`,
+    iconSize: selected ? [38,38] : [28,28],
+    iconAnchor: selected ? [19,38] : [14,28],
+  });
+}
+
+SPOTS.forEach((spot)=>{
+  const marker = L.marker([spot.lat, spot.lng], { icon: makeIcon(spot,false) });
+  marker.on('click', ()=> openSheet(spot));
+  marker.addTo(map);
+  markers[spot.id] = marker;
+});
+
+function refreshMarkers(){
+  let shown = 0;
+  SPOTS.forEach((spot)=>{
+    const m = markers[spot.id];
+    if(isVisible(spot)){
+      if(!map.hasLayer(m)) m.addTo(map);
+      shown++;
+    } else {
+      if(map.hasLayer(m)) map.removeLayer(m);
+    }
+  });
+  document.getElementById('shown-count').textContent = shown;
+}
+refreshMarkers();
+
+let selectedId = null;
+function highlightMarker(id){
+  if(selectedId !== null && markers[selectedId]){
+    markers[selectedId].setIcon(makeIcon(SPOTS[selectedId], false));
+  }
+  selectedId = id;
+  if(id !== null){
+    markers[id].setIcon(makeIcon(SPOTS[id], true));
+  }
+}
+
+// ---------- Sheet ----------
+const sheet = document.getElementById('sheet');
+const overlay = document.getElementById('overlay');
+
+function openSheet(spot){
+  const def = CATS[spot.c];
+  document.getElementById('sheet-icon').textContent = def.icon;
+  document.getElementById('sheet-icon').style.setProperty('background', def.hex);
+  document.getElementById('sheet-cat').textContent = def.label;
+  document.getElementById('sheet-cat').style.color = def.hex;
+  document.getElementById('sheet-name').textContent = (spot.fav ? '⭐ ' : '') + spot.n;
+  const priceStr = spot.p ? ` <span>· ${'€'.repeat(spot.p)}</span>` : '';
+  const taStr = spot.ta ? ` <span class="ta-badge">TA ${spot.ta.toFixed(1)}</span>` : '';
+  document.getElementById('sheet-rating').innerHTML = (spot.r ? `★ ${spot.r.toFixed(1)} <span>(${fmtCount(spot.rc)} ratings)</span>` : `⭐ Personal favorite <span>(no public rating yet)</span>`) + priceStr + taStr;
+  document.getElementById('sheet-blurb').textContent = spot.b;
+  document.getElementById('sheet-tip').textContent = spot.t;
+  document.getElementById('sheet-tip').style.borderColor = def.hex;
+  document.getElementById('sheet-maps').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(spot.n + ' Gran Canaria')}`;
+  document.getElementById('sheet-walk').href = `https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}&travelmode=walking`;
+  document.getElementById('sheet-drive').href = `https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}&travelmode=driving`;
+  sheet.classList.add('open');
+  overlay.classList.add('open');
+  highlightMarker(spot.id);
+  map.flyTo([spot.lat, spot.lng], Math.max(map.getZoom(), 13), { duration: 0.5 });
+  document.getElementById('list-wrap').classList.remove('open');
+  document.getElementById('view-toggle').textContent = '☰ List';
+}
+function closeSheet(){
+  sheet.classList.remove('open');
+  overlay.classList.remove('open');
+  highlightMarker(null);
+}
+document.getElementById('sheet-close').addEventListener('click', closeSheet);
+overlay.addEventListener('click', closeSheet);
+
+// ---------- List view (sorted rating high -> low, already sorted globally) ----------
+const listWrap = document.getElementById('list-wrap');
+const listEmpty = document.getElementById('list-empty');
+function buildList(){
+  listWrap.querySelectorAll('.list-item').forEach(el=>el.remove());
+  const visible = SPOTS.filter(isVisible);
+  listEmpty.style.display = visible.length ? 'none' : 'block';
+  visible.forEach(spot=>{
+    const def = CATS[spot.c];
+    const row = document.createElement('div');
+    row.className = 'list-item';
+    row.innerHTML = `<div class="swatch" style="background:${def.hex}">${def.icon}</div>
+      <div>
+        <div class="li-head"><h3>${spot.fav ? '⭐ ' : ''}${spot.n}</h3><span class="rating">${spot.r ? '★ '+spot.r.toFixed(1) : 'new'}${spot.p ? ' · '+'€'.repeat(spot.p) : ''}</span>${spot.ta ? `<span class="ta-badge">TA ${spot.ta.toFixed(1)}</span>` : ''}</div>
+        <p>${spot.b}</p>
+      </div>`;
+    row.addEventListener('click', ()=>{ listWrap.classList.remove('open'); openSheet(spot); });
+    listWrap.appendChild(row);
+  });
+}
+buildList();
+
+document.getElementById('view-toggle').addEventListener('click', ()=>{
+  const isOpen = listWrap.classList.toggle('open');
+  document.getElementById('view-toggle').textContent = isOpen ? '🗺 Map' : '☰ List';
+  if(isOpen) closeSheet();
+});
+
+// ---------- Search ----------
+const searchInput = document.getElementById('search-input');
+const searchClear = document.getElementById('search-clear');
+searchInput.addEventListener('input', (e)=>{
+  searchQuery = e.target.value.trim();
+  searchClear.classList.toggle('show', searchQuery.length > 0);
+  refreshMarkers();
+  buildList();
+});
+searchClear.addEventListener('click', ()=>{
+  searchInput.value = '';
+  searchQuery = '';
+  searchClear.classList.remove('show');
+  refreshMarkers();
+  buildList();
+  searchInput.focus();
+});
+</script>
+</body>
+</html>
